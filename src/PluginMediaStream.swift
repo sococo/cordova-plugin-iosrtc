@@ -18,8 +18,7 @@ class PluginMediaStream : NSObject, RTCMediaStreamDelegate {
 		NSLog("PluginMediaStream#init()")
 
 		self.rtcMediaStream = rtcMediaStream
-		// ObjC API does not provide id property, so let's set a random one.
-		self.id = rtcMediaStream.label + "-" + NSUUID().UUIDString
+		self.id = rtcMediaStream.label
 
 		for track: RTCMediaStreamTrack in (self.rtcMediaStream.audioTracks as! Array<RTCMediaStreamTrack>) {
 			let pluginMediaStreamTrack = PluginMediaStreamTrack(rtcMediaStreamTrack: track)
