@@ -2022,11 +2022,23 @@ function onEvent(data) {
 			break;
 
 		case 'removestream':
-			stream = this.remoteStreams[data.streamId];
+			for (id in this.remoteStreams) {
+				if (!this.remoteStreams.hasOwnProperty(id)) {
+					continue;
+				}
+				if (id.indexOf(data.streamId) === 0) {
+					stream = this.remoteStreams[id];
+					break;
+				}
+			}
 			event.stream = stream;
 
-			// Remove from the remote streams.
-			delete this.remoteStreams[stream.id];
+			if (!stream) {
+				debug('removestream | failed to find remote stream for remove with id: %s', data.streamId);
+			} else {
+				// Remove from the remote streams.
+				delete this.remoteStreams[stream.id];
+			}
 			break;
 
 		case 'datachannel':
