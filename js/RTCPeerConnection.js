@@ -17,7 +17,10 @@ var
 	RTCIceCandidate = require('./RTCIceCandidate'),
 	RTCDataChannel = require('./RTCDataChannel'),
 	RTCDTMFSender = require('./RTCDTMFSender'),
+	RTCStatsResponse = require('./RTCStatsResponse'),
+	RTCStatsReport = require('./RTCStatsReport'),
 	MediaStream = require('./MediaStream'),
+	MediaStreamTrack = require('./MediaStreamTrack'),
 	Errors = require('./Errors');
 
 
@@ -585,6 +588,84 @@ RTCPeerConnection.prototype.createDataChannel = function (label, options) {
 	return new RTCDataChannel(this, label, options);
 };
 
+RTCPeerConnection.prototype.getStats = function () {
+	var self = this,
+		isPromise,
+		selector,
+		callback, errback;
+
+	if (typeof arguments[0] !== 'function') {
+		isPromise = true;
+		selector = arguments[0];
+	} else {
+		isPromise = false;
+		callback = arguments[0];
+		selector = arguments[1];
+		errback = arguments[2];
+	}
+
+	if (selector && !(selector instanceof MediaStreamTrack)) {
+		throw new Error('getStats() must be called with null or a valid MediaStreamTrack instance as argument');
+	}
+
+	if (isClosed.call(this)) {
+		return;
+	}
+
+	if (isPromise) {
+		return new Promise(function (resolve, reject) {
+			function onResultOK(array) {
+				if (isClosed.call(self)) {
+					return;
+				}
+
+				var res = [];
+				array.forEach(function (stat) {
+					res.push(new RTCStatsReport(stat));
+				});
+				resolve(new RTCStatsResponse(res));
+			}
+
+			function onResultError(error) {
+				if (isClosed.call(self)) {
+					return;
+				}
+
+				debugerror('getStats() | failure: %s', error);
+				if (typeof errback === 'function') {
+					reject(new global.DOMError(error));
+				}
+			}
+
+			exec(onResultOK, onResultError, 'iosrtcPlugin', 'RTCPeerConnection_getStats', [this.pcId, selector ? selector.id : null]);
+		});
+	}
+
+	function onResultOK(array) {
+		if (isClosed.call(self)) {
+			return;
+		}
+
+		var res = [];
+		array.forEach(function (stat) {
+			res.push(new RTCStatsReport(stat));
+		});
+		callback(new RTCStatsResponse(res));
+	}
+
+	function onResultError(error) {
+		if (isClosed.call(self)) {
+			return;
+		}
+
+		debugerror('getStats() | failure: %s', error);
+		if (typeof errback === 'function') {
+			errback(new global.DOMError(error));
+		}
+	}
+
+	exec(onResultOK, onResultError, 'iosrtcPlugin', 'RTCPeerConnection_getStats', [this.pcId, selector ? selector.id : null]);
+};
 
 RTCPeerConnection.prototype.createDTMFSender = function (track) {
 	if (isClosed.call(this)) {
