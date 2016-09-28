@@ -364,7 +364,7 @@ class iosrtcPlugin : CDVPlugin {
             }
         }
 
-        dispatch_async(self.queue) {[weak pluginRTCPeerConnection, weak pluginMediaStreamTrack]
+        dispatch_async(self.queue) {[weak pluginRTCPeerConnection, weak pluginMediaStreamTrack] in
             pluginRTCPeerConnection?.getStats(pluginMediaStreamTrack,
                 callback: { (array: NSArray) -> Void in
                     self.emit(command.callbackId,
