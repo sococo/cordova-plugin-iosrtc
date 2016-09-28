@@ -461,7 +461,7 @@ function onEvent(data) {
 	}
 }
 
-},{"./MediaStreamTrack":5,"cordova/exec":undefined,"debug":16,"yaeti":21}],4:[function(require,module,exports){
+},{"./MediaStreamTrack":5,"cordova/exec":undefined,"debug":18,"yaeti":23}],4:[function(require,module,exports){
 /**
  * Expose the MediaStreamRenderer class.
  */
@@ -813,7 +813,7 @@ function getElementPositionAndSize() {
 	};
 }
 
-},{"./MediaStream":3,"cordova/exec":undefined,"debug":16,"random-number":20,"yaeti":21}],5:[function(require,module,exports){
+},{"./MediaStream":3,"cordova/exec":undefined,"debug":18,"random-number":22,"yaeti":23}],5:[function(require,module,exports){
 /**
  * Expose the MediaStreamTrack class.
  */
@@ -933,7 +933,7 @@ function onEvent(data) {
 	}
 }
 
-},{"./enumerateDevices":11,"cordova/exec":undefined,"debug":16,"yaeti":21}],6:[function(require,module,exports){
+},{"./enumerateDevices":13,"cordova/exec":undefined,"debug":18,"yaeti":23}],6:[function(require,module,exports){
 /**
  * Expose the RTCDTMFSender class.
  */
@@ -1065,7 +1065,7 @@ function onEvent(data) {
 	}
 }
 
-},{"cordova/exec":undefined,"debug":16,"random-number":20,"yaeti":21}],7:[function(require,module,exports){
+},{"cordova/exec":undefined,"debug":18,"random-number":22,"yaeti":23}],7:[function(require,module,exports){
 /**
  * Expose the RTCDataChannel class.
  */
@@ -1289,7 +1289,7 @@ function onEvent(data) {
 	}
 }
 
-},{"cordova/exec":undefined,"debug":16,"random-number":20,"yaeti":21}],8:[function(require,module,exports){
+},{"cordova/exec":undefined,"debug":18,"random-number":22,"yaeti":23}],8:[function(require,module,exports){
 /**
  * Expose the RTCIceCandidate class.
  */
@@ -1326,7 +1326,10 @@ var
 	RTCIceCandidate = require('./RTCIceCandidate'),
 	RTCDataChannel = require('./RTCDataChannel'),
 	RTCDTMFSender = require('./RTCDTMFSender'),
+	RTCStatsResponse = require('./RTCStatsResponse'),
+	RTCStatsReport = require('./RTCStatsReport'),
 	MediaStream = require('./MediaStream'),
+	MediaStreamTrack = require('./MediaStreamTrack'),
 	Errors = require('./Errors');
 
 
@@ -1894,6 +1897,84 @@ RTCPeerConnection.prototype.createDataChannel = function (label, options) {
 	return new RTCDataChannel(this, label, options);
 };
 
+RTCPeerConnection.prototype.getStats = function () {
+	var self = this,
+		isPromise,
+		selector,
+		callback, errback;
+
+	if (typeof arguments[0] !== 'function') {
+		isPromise = true;
+		selector = arguments[0];
+	} else {
+		isPromise = false;
+		callback = arguments[0];
+		selector = arguments[1];
+		errback = arguments[2];
+	}
+
+	if (selector && !(selector instanceof MediaStreamTrack)) {
+		throw new Error('getStats() must be called with null or a valid MediaStreamTrack instance as argument');
+	}
+
+	if (isClosed.call(this)) {
+		return;
+	}
+
+	if (isPromise) {
+		return new Promise(function (resolve, reject) {
+			function onResultOK(array) {
+				if (isClosed.call(self)) {
+					return;
+				}
+
+				var res = [];
+				array.forEach(function (stat) {
+					res.push(new RTCStatsReport(stat));
+				});
+				resolve(new RTCStatsResponse(res));
+			}
+
+			function onResultError(error) {
+				if (isClosed.call(self)) {
+					return;
+				}
+
+				debugerror('getStats() | failure: %s', error);
+				if (typeof errback === 'function') {
+					reject(new global.DOMError(error));
+				}
+			}
+
+			exec(onResultOK, onResultError, 'iosrtcPlugin', 'RTCPeerConnection_getStats', [this.pcId, selector ? selector.id : null]);
+		});
+	}
+
+	function onResultOK(array) {
+		if (isClosed.call(self)) {
+			return;
+		}
+
+		var res = [];
+		array.forEach(function (stat) {
+			res.push(new RTCStatsReport(stat));
+		});
+		callback(new RTCStatsResponse(res));
+	}
+
+	function onResultError(error) {
+		if (isClosed.call(self)) {
+			return;
+		}
+
+		debugerror('getStats() | failure: %s', error);
+		if (typeof errback === 'function') {
+			errback(new global.DOMError(error));
+		}
+	}
+
+	exec(onResultOK, onResultError, 'iosrtcPlugin', 'RTCPeerConnection_getStats', [this.pcId, selector ? selector.id : null]);
+};
 
 RTCPeerConnection.prototype.createDTMFSender = function (track) {
 	if (isClosed.call(this)) {
@@ -2051,7 +2132,7 @@ function onEvent(data) {
 }
 
 }).call(this,typeof global !== "undefined" ? global : typeof self !== "undefined" ? self : typeof window !== "undefined" ? window : {})
-},{"./Errors":1,"./MediaStream":3,"./RTCDTMFSender":6,"./RTCDataChannel":7,"./RTCIceCandidate":8,"./RTCSessionDescription":10,"cordova/exec":undefined,"debug":16,"random-number":20,"yaeti":21}],10:[function(require,module,exports){
+},{"./Errors":1,"./MediaStream":3,"./MediaStreamTrack":5,"./RTCDTMFSender":6,"./RTCDataChannel":7,"./RTCIceCandidate":8,"./RTCSessionDescription":10,"./RTCStatsReport":11,"./RTCStatsResponse":12,"cordova/exec":undefined,"debug":18,"random-number":22,"yaeti":23}],10:[function(require,module,exports){
 /**
  * Expose the RTCSessionDescription class.
  */
@@ -2067,6 +2148,45 @@ function RTCSessionDescription(data) {
 }
 
 },{}],11:[function(require,module,exports){
+/**
+ * Expose the RTCStatsReport class.
+ */
+module.exports = RTCStatsReport;
+
+function RTCStatsReport(data) {
+    data = data || [];
+
+    this.id = data.reportId;
+    this.timestamp = data.timestamp;
+    this.type = data.type;
+
+    this.names = function() {
+        return Object.keys(data.values);
+    }
+
+    this.stat = function(key) {
+        return data.values[key] || '';
+    }
+}
+
+},{}],12:[function(require,module,exports){
+/**
+ * Expose the RTCStatsResponse class.
+ */
+module.exports = RTCStatsResponse;
+
+function RTCStatsResponse(data) {
+    data = data || [];
+
+    this.result = function() {
+        return data;
+    }
+    this.namedItem = function() {
+        return null;
+    }
+}
+
+},{}],13:[function(require,module,exports){
 /**
  * Expose the enumerateDevices function.
  */
@@ -2135,7 +2255,7 @@ function getMediaDeviceInfos(devices) {
 	return mediaDeviceInfos;
 }
 
-},{"./MediaDeviceInfo":2,"cordova/exec":undefined,"debug":16}],12:[function(require,module,exports){
+},{"./MediaDeviceInfo":2,"cordova/exec":undefined,"debug":18}],14:[function(require,module,exports){
 /**
  * Expose the getUserMedia function.
  */
@@ -2306,7 +2426,7 @@ function getUserMedia(constraints) {
 	exec(onResultOK, onResultError, 'iosrtcPlugin', 'getUserMedia', [newConstraints]);
 }
 
-},{"./Errors":1,"./MediaStream":3,"cordova/exec":undefined,"debug":16}],13:[function(require,module,exports){
+},{"./Errors":1,"./MediaStream":3,"cordova/exec":undefined,"debug":18}],15:[function(require,module,exports){
 (function (global){
 /**
  * Variables.
@@ -2443,7 +2563,7 @@ function dump() {
 }
 
 }).call(this,typeof global !== "undefined" ? global : typeof self !== "undefined" ? self : typeof window !== "undefined" ? window : {})
-},{"./MediaStream":3,"./MediaStreamTrack":5,"./RTCIceCandidate":8,"./RTCPeerConnection":9,"./RTCSessionDescription":10,"./enumerateDevices":11,"./getUserMedia":12,"./rtcninjaPlugin":14,"./videoElementsHandler":15,"cordova/exec":undefined,"debug":16,"domready":19}],14:[function(require,module,exports){
+},{"./MediaStream":3,"./MediaStreamTrack":5,"./RTCIceCandidate":8,"./RTCPeerConnection":9,"./RTCSessionDescription":10,"./enumerateDevices":13,"./getUserMedia":14,"./rtcninjaPlugin":16,"./videoElementsHandler":17,"cordova/exec":undefined,"debug":18,"domready":21}],16:[function(require,module,exports){
 /**
  * Expose the rtcninjaPlugin object.
  */
@@ -2475,7 +2595,7 @@ function attachMediaStream(element, stream) {
 	return element;
 }
 
-},{"./MediaStreamTrack":5,"./RTCIceCandidate":8,"./RTCPeerConnection":9,"./RTCSessionDescription":10,"./enumerateDevices":11,"./getUserMedia":12}],15:[function(require,module,exports){
+},{"./MediaStreamTrack":5,"./RTCIceCandidate":8,"./RTCPeerConnection":9,"./RTCSessionDescription":10,"./enumerateDevices":13,"./getUserMedia":14}],17:[function(require,module,exports){
 (function (global){
 /**
  * Expose a function that must be called when the library is loaded.
@@ -2813,7 +2933,7 @@ function releaseMediaStreamRenderer(video) {
 }
 
 }).call(this,typeof global !== "undefined" ? global : typeof self !== "undefined" ? self : typeof window !== "undefined" ? window : {})
-},{"./MediaStreamRenderer":4,"debug":16}],16:[function(require,module,exports){
+},{"./MediaStreamRenderer":4,"debug":18}],18:[function(require,module,exports){
 
 /**
  * This is the web browser implementation of `debug()`.
@@ -2983,7 +3103,7 @@ function localstorage(){
   } catch (e) {}
 }
 
-},{"./debug":17}],17:[function(require,module,exports){
+},{"./debug":19}],19:[function(require,module,exports){
 
 /**
  * This is the common logic for both the Node.js and web browser
@@ -3182,7 +3302,7 @@ function coerce(val) {
   return val;
 }
 
-},{"ms":18}],18:[function(require,module,exports){
+},{"ms":20}],20:[function(require,module,exports){
 /**
  * Helpers.
  */
@@ -3309,7 +3429,7 @@ function plural(ms, n, name) {
   return Math.ceil(ms / n) + ' ' + name + 's';
 }
 
-},{}],19:[function(require,module,exports){
+},{}],21:[function(require,module,exports){
 /*!
   * domready (c) Dustin Diaz 2014 - License MIT
   */
@@ -3341,7 +3461,7 @@ function plural(ms, n, name) {
 
 });
 
-},{}],20:[function(require,module,exports){
+},{}],22:[function(require,module,exports){
 void function(root){
 
   function defaults(options){
@@ -3387,13 +3507,13 @@ void function(root){
   module.exports.defaults = defaults
 }(this)
 
-},{}],21:[function(require,module,exports){
+},{}],23:[function(require,module,exports){
 module.exports = {
 	EventTarget : require('./lib/EventTarget'),
 	Event       : require('./lib/Event')
 };
 
-},{"./lib/Event":22,"./lib/EventTarget":23}],22:[function(require,module,exports){
+},{"./lib/Event":24,"./lib/EventTarget":25}],24:[function(require,module,exports){
 (function (global){
 /**
  * In browsers export the native Event interface.
@@ -3402,7 +3522,7 @@ module.exports = {
 module.exports = global.Event;
 
 }).call(this,typeof global !== "undefined" ? global : typeof self !== "undefined" ? self : typeof window !== "undefined" ? window : {})
-},{}],23:[function(require,module,exports){
+},{}],25:[function(require,module,exports){
 /**
  * Expose the _EventTarget class.
  */
@@ -3523,5 +3643,5 @@ function _dispatchEvent(event) {
 	return !event.defaultPrevented;
 }
 
-},{}]},{},[13])(13)
+},{}]},{},[15])(15)
 });
