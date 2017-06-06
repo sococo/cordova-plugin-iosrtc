@@ -316,23 +316,6 @@ class PluginRTCPeerConnection : NSObject, RTCPeerConnectionDelegate, RTCSessionD
 		)
 	}
 
-	func getStats(
-        pluginMediaStreamTrack: PluginMediaStreamTrack?,
-        callback: (data: NSArray) -> Void,
-        errback: (error: NSError) -> Void
-        ) {
-            NSLog("PluginRTCPeerConnection#getStats()")
-
-            self.onGetStatsCallback = { (array: NSArray) -> Void in
-                callback(data: array)
-            }
-
-            if !self.rtcPeerConnection.getStatsWithDelegate(self,
-                mediaStreamTrack: pluginMediaStreamTrack?.rtcMediaStreamTrack,
-                statsOutputLevel: RTCStatsOutputLevelStandard) {
-                    errback(error: NSError(domain: "Cannot get peer connection stats.", code: -1, userInfo: nil))
-            }
-    }
 
 	func createDTMFSender(
 		_ dsId: Int,
