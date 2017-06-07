@@ -413,14 +413,14 @@ RTCPeerConnection.prototype.addIceCandidate = function (candidate) {
 
 	debug('addIceCandidate() | [candidate:%o]', candidate);
 
-	if (!(candidate instanceof RTCIceCandidate)) {
+	if (typeof candidate !== 'object') {
 		if (isPromise) {
 			return new Promise(function (resolve, reject) {
-				reject(new global.DOMError('addIceCandidate() must be called with a RTCIceCandidate instance as first argument'));
+				reject(new global.DOMError('addIceCandidate() must be called with a RTCIceCandidate instance or RTCIceCandidateInit object as argument'));
 			});
 		} else {
 			if (typeof errback === 'function') {
-				errback(new global.DOMError('addIceCandidate() must be called with a RTCIceCandidate instance as first argument'));
+				errback(new global.DOMError('addIceCandidate() must be called with a RTCIceCandidate instance or RTCIceCandidateInit object as argument'));
 			}
 			return;
 		}
@@ -588,6 +588,17 @@ RTCPeerConnection.prototype.createDataChannel = function (label, options) {
 	return new RTCDataChannel(this, label, options);
 };
 
+
+RTCPeerConnection.prototype.createDTMFSender = function (track) {
+	if (isClosed.call(this)) {
+		throw new Errors.InvalidStateError('peerconnection is closed');
+	}
+
+	debug('createDTMFSender() [track:%o]', track);
+
+	return new RTCDTMFSender(this, track);
+};
+
 RTCPeerConnection.prototype.getStats = function () {
 	var self = this,
 		isPromise,
@@ -609,8 +620,10 @@ RTCPeerConnection.prototype.getStats = function () {
 	}
 
 	if (isClosed.call(this)) {
-		return;
+		throw new Errors.InvalidStateError('peerconnection is closed');
 	}
+
+	debug('getStats() [selector:%o]', selector);
 
 	if (isPromise) {
 		return new Promise(function (resolve, reject) {
@@ -632,12 +645,10 @@ RTCPeerConnection.prototype.getStats = function () {
 				}
 
 				debugerror('getStats() | failure: %s', error);
-				if (typeof errback === 'function') {
-					reject(new global.DOMError(error));
-				}
+				reject(new global.DOMError(error));
 			}
 
-			exec(onResultOK, onResultError, 'iosrtcPlugin', 'RTCPeerConnection_getStats', [this.pcId, selector ? selector.id : null]);
+			exec(onResultOK, onResultError, 'iosrtcPlugin', 'RTCPeerConnection_getStats', [self.pcId, selector ? selector.id : null]);
 		});
 	}
 
@@ -666,17 +677,6 @@ RTCPeerConnection.prototype.getStats = function () {
 
 	exec(onResultOK, onResultError, 'iosrtcPlugin', 'RTCPeerConnection_getStats', [this.pcId, selector ? selector.id : null]);
 };
-
-RTCPeerConnection.prototype.createDTMFSender = function (track) {
-	if (isClosed.call(this)) {
-		throw new Errors.InvalidStateError('peerconnection is closed');
-	}
-
-	debug('createDTMFSender() [track:%o]', track);
-
-	return new RTCDTMFSender(this, track);
-};
-
 
 RTCPeerConnection.prototype.close = function () {
 	if (isClosed.call(this)) {
